@@ -1,0 +1,275 @@
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Mini Pong Smooth</title>
+
+<style>
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial;
+    background: black;
+}
+
+canvas { display: block; }
+
+#score {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: white;
+    font-size: 24px;
+    z-index: 10;
+}
+
+#menu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    text-align: center;
+    display: none;
+    z-index: 10;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 18px;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div id="score">Score: 0</div>
+
+<div id="menu">
+<h1>GAME OVER</h1>
+<p id="finalScore"></p>
+<button onclick="startGame()">Rejouer</button>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let score = 0;
+let gameRunning = false;
+
+const paddleWidth = 160;
+const paddleHeight = 15;
+
+const minHorizontal = 2; // empêche la balle d'aller tout droit
+
+let player, ai, ball;
+
+let currentHue = 0;
+
+function updateBackgroundColor() {
+
+    if (score % 10 === 0 && score !== 0) {
+
+        currentHue = Math.floor(Math.random() * 360);
+
+        document.body.style.backgroundColor =
+        "hsl(" + currentHue + ", 70%, 20%)";
+    }
+}
+
+function init() {
+
+    document.body.style.backgroundColor = "black";
+
+    player = {
+        x: canvas.width / 2 - paddleWidth / 2,
+        y: canvas.height - 40,
+        width: paddleWidth,
+        height: paddleHeight
+    };
+
+    ai = {
+        x: canvas.width / 2 - paddleWidth / 2,
+        y: 20,
+        width: paddleWidth,
+        height: paddleHeight
+    };
+
+    ball = {
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        radius: 10,
+        dx: 4,
+        dy: 4
+    };
+
+    score = 0;
+
+    document.getElementById("score").innerText = "Score: 0";
+}
+
+function lockMouse() { canvas.requestPointerLock(); }
+function unlockMouse() { document.exitPointerLock(); }
+
+document.addEventListener("mousemove", function(e) {
+
+    if (!gameRunning) return;
+
+    if (document.pointerLockElement === canvas) {
+
+        player.x += e.movementX;
+
+        if (player.x < 0) player.x = 0;
+
+        if (player.x + player.width > canvas.width)
+        player.x = canvas.width - player.width;
+    }
+});
+
+function update() {
+
+    if (!gameRunning) return;
+
+    ai.x = ball.x - ai.width / 2;
+
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    if (ball.y - ball.radius > canvas.height) {
+
+        endGame();
+        return;
+    }
+
+    if (ball.x - ball.radius < 0 || ball.x + ball.radius > canvas.width) {
+
+        ball.dx *= -1;
+    }
+
+    // collision joueur
+    if (
+
+        ball.dy > 0 &&
+        ball.y + ball.radius >= player.y &&
+        ball.x > player.x &&
+        ball.x < player.x + player.width
+
+    ) {
+
+        let hitPoint =
+        (ball.x - (player.x + player.width/2)) / (player.width/2);
+
+        let angle = hitPoint * Math.PI/3;
+
+        let speed = Math.sqrt(ball.dx*ball.dx + ball.dy*ball.dy);
+
+        speed *= 1.05;
+
+        ball.dx = speed * Math.sin(angle);
+        ball.dy = -speed * Math.cos(angle);
+
+        // empêche trajectoire verticale
+        if (Math.abs(ball.dx) < minHorizontal) {
+
+            ball.dx = ball.dx < 0 ? -minHorizontal : minHorizontal;
+        }
+
+        score++;
+        updateBackgroundColor();
+    }
+
+    // collision IA
+    if (
+
+        ball.dy < 0 &&
+        ball.y - ball.radius <= ai.y + ai.height &&
+        ball.x > ai.x &&
+        ball.x < ai.x + ai.width
+
+    ) {
+
+        ball.dy *= -1;
+
+        // empêche trajectoire verticale
+        if (Math.abs(ball.dx) < minHorizontal) {
+
+            ball.dx = ball.dx < 0 ? -minHorizontal : minHorizontal;
+        }
+
+        score++;
+        updateBackgroundColor();
+    }
+
+    document.getElementById("score").innerText =
+    "Score: " + score;
+}
+
+function draw() {
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    ctx.fillStyle = "white";
+
+    ctx.fillRect(player.x,player.y,player.width,player.height);
+    ctx.fillRect(ai.x,ai.y,ai.width,ai.height);
+
+    ctx.beginPath();
+    ctx.arc(ball.x,ball.y,ball.radius,0,Math.PI*2);
+    ctx.fill();
+}
+
+function gameLoop() {
+
+    update();
+    draw();
+
+    requestAnimationFrame(gameLoop);
+}
+
+function endGame() {
+
+    gameRunning = false;
+
+    unlockMouse();
+
+    document.getElementById("finalScore").innerText =
+    "Score final : " + score;
+
+    setTimeout(() => {
+
+        document.getElementById("menu").style.display = "block";
+
+    },2000);
+}
+
+function startGame() {
+
+    document.getElementById("menu").style.display = "none";
+
+    init();
+
+    gameRunning = true;
+
+    lockMouse();
+}
+
+canvas.addEventListener("click",function(){
+
+    if(!gameRunning) startGame();
+
+});
+
+init();
+gameLoop();
+
+</script>
+
+</body>
+</html>
